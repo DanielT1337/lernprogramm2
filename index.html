@@ -46,7 +46,7 @@
             box-sizing: border-box;
         }
 
-        .hidden { display: none; }
+        .hidden { display: none !important; }
 
         button {
             background: var(--secondary);
@@ -72,6 +72,7 @@
 
         button.success-btn { background: var(--success); font-size: 1.2rem; padding: 15px 40px; }
         button.back-btn { background: #7f8c8d; font-size: 0.85rem; margin-top: 20px; }
+        button.small-btn { padding: 6px 12px; font-size: 0.8rem; margin: 0 5px 10px 0; background: #95a5a6; }
 
         .card {
             border: 2px solid #f1f1f1;
@@ -122,7 +123,51 @@
         .info-text {
             color: #7f8c8d;
             line-height: 1.4;
-            margin-bottom: 1.5rem;
+            margin-bottom: 1rem;
+        }
+
+        /* Neue Filter-Bereich Styles */
+        .filter-section {
+            text-align: left;
+            background: #fdfdfd;
+            border: 1px solid #e0e0e0;
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 20px;
+        }
+
+        .filter-section h3 {
+            margin-top: 0;
+            font-size: 1.1rem;
+            color: var(--primary);
+        }
+
+        .theme-list {
+            max-height: 200px;
+            overflow-y: auto;
+            border: 1px solid #eee;
+            padding: 10px;
+            border-radius: 5px;
+            background: white;
+        }
+
+        .theme-checkbox-wrapper {
+            display: flex;
+            align-items: center;
+            margin-bottom: 8px;
+            font-size: 0.95rem;
+        }
+
+        .theme-checkbox-wrapper input[type="checkbox"] {
+            margin-right: 10px;
+            width: 16px;
+            height: 16px;
+            cursor: pointer;
+        }
+        
+        .theme-checkbox-wrapper label {
+            cursor: pointer;
+            user-select: none;
         }
     </style>
 </head>
@@ -135,7 +180,18 @@
 <div id="view-home" class="container">
     <h2>Prüfungsvorbereitung</h2>
     <p class="info-text" id="question-count-info">Lade Fragen...</p>
-    <button onclick="startLearning()" id="btn-start" class="success-btn">Lernen starten</button>
+
+    <div id="filter-container" class="filter-section hidden">
+        <h3>Themengebiete auswählen</h3>
+        <div>
+            <button class="small-btn" onclick="toggleAllThemes(true)">Alle auswählen</button>
+            <button class="small-btn" onclick="toggleAllThemes(false)">Alle abwählen</button>
+        </div>
+        <div id="theme-list" class="theme-list">
+            </div>
+    </div>
+
+    <button onclick="startLearning()" id="btn-start" class="success-btn hidden">Lernen starten</button>
 </div>
 
 <div id="view-learn" class="container hidden">
@@ -148,7 +204,7 @@
     <button id="btn-show-answer" onclick="showAnswer()">Antwort aufdecken</button>
     <button id="btn-next" onclick="nextQuestion()" class="hidden">Nächste Frage</button>
     <br>
-    <button onclick="showView('view-home')" class="back-btn">Abbrechen & Beenden</button>
+    <button onclick="showView('view-home')" class="back-btn">Lernsitzung beenden</button>
 </div>
 
 <script>
@@ -156,7 +212,9 @@
     // DATENBANK (INTEGRIERT)
     // ==========================================
     
-    const QUESTIONS_DATA = `Altersbedingte Veränderungen;Welchen Einfluss hat die verminderte glomeruläre Filtrationsrate (GFR) im Alter auf die Pharmakotherapie?;Durch die nachlassende Nierenfunktion verlängert sich die Halbwertszeit renal ausgeschiedener Medikamente, was das Risiko für Akkumulation und Toxizität (z.B. bei Digoxin oder NSAR) massiv erhöht.
+    // HIER DEINE GESAMTEN CSV-DATEN EINFÜGEN (zwischen die Backticks ` `)
+    const QUESTIONS_DATA = `
+Altersbedingte Veränderungen;Welchen Einfluss hat die verminderte glomeruläre Filtrationsrate (GFR) im Alter auf die Pharmakotherapie?;Durch die nachlassende Nierenfunktion verlängert sich die Halbwertszeit renal ausgeschiedener Medikamente, was das Risiko für Akkumulation und Toxizität (z.B. bei Digoxin oder NSAR) massiv erhöht.
 Altersbedingte Veränderungen;Erklären Sie den Begriff der Presbyakusis und die daraus resultierenden pflegerischen Konsequenzen.;Es handelt sich um die Altersschwerhörigkeit (v.a. im Hochtonbereich). Pflegerisch muss tief moduliert, deutlich, langsam und von Angesicht zu Angesicht gesprochen werden, da hohe Töne schlechter gefiltert werden können.
 Altersbedingte Veränderungen;Wie verändert sich die Thermoregulation im Alter und welche Gefahr resultiert daraus?;Durch weniger Unterhautfettgewebe, verminderte Schweissproduktion und ein reduziertes Durstgefühl können ältere Menschen Hitze und Kälte schlechter kompensieren, was zu Dehydration oder unbemerkter Hypothermie führen kann.
 Altersbedingte Veränderungen;Was bedeutet die Abnahme der Lungenelastizität (Compliance) für die Atemreserve älterer Patienten?;Die Vitalkapazität sinkt und das Residualvolumen steigt, da die Lunge sich nicht mehr vollständig zusammenzieht. Dies führt bei Belastung schneller zu Dyspnoe und erhöht das Risiko für respiratorische Infekte (Atelektasenbildung).
@@ -954,19 +1012,185 @@ Professionelles Selbstverständnis;Wie bilden Sie sich nach dem Studium weiter?;
 Professionelles Selbstverständnis;Passender Werbeslogan für das Spital Schwyz?;Beispiel: "Menschlichkeit trifft Expertise – Gemeinsam für Ihre Gesundheit im Herzen der Zentralschweiz." (Fokus auf Regionalität und Qualität).
 Professionelles Selbstverständnis;Was schätzen Sie an Ihrem Beruf / Arbeitsort?;Die tägliche Herausforderung des Clinical Reasoning, die Arbeit im interprofessionellen Team, die tiefe menschliche Interaktion und die Möglichkeit, Patienten in vulnerablen Lebensphasen massgeblich zu unterstützen.
 Berufspolitik & Zukunft;Wie entwickelt sich unser Beruf weiter?;Hin zu mehr akademischer Verantwortung (Pflegewissenschaft), technischer Unterstützung durch Robotik/KI, aber auch zu einer stärkeren Rolle in der Primärversorgung (Gemeindepflege) und präventiven Gesundheitsberatung.
-Professionelles Selbstverständnis;Wo und wie können Sie ein Vorbild sein?;Durch ethisch korrektes Handeln, konsequente Einhaltung von Standards, wertschätzende Kommunikation gegenüber Lernenden und durch die Bereitschaft, das eigene Handeln jederzeit kritisch zu hinterfragen.`;
+Kommunikation;Was sind die vier Ebenen einer Äusserung im 4-Ohren-Modell nach Schulz von Thun?;1. Sachinformation (Daten/Fakten), 2. Selbstkundgabe (Infos über den Sender), 3. Beziehungshinweis (Wie der Sender zum Empfänger steht), 4. Appell (Was beim Empfänger erreicht werden soll).
+Kommunikation;Warum spricht man im 4-Ohren-Modell von "vier Schnäbeln" und "vier Ohren"?;Der Sender kommuniziert seine Botschaft immer auf vier Ebenen gleichzeitig (vier Schnäbel), und der Empfänger nimmt die Botschaft entsprechend auf diesen vier Ebenen wahr (vier Ohren).
+Kommunikation;Wovon hängt die Qualität der Kommunikation laut dem 4-Ohren-Modell massgeblich ab?;Sie hängt von der Klarheit und der unmissverständlichen Übereinstimmung der Botschaften auf allen vier Ebenen ab.
+Psychologie & Identität;Benennen Sie die 5 Säulen der Identität nach Petzold.;1. Körper und Gesundheit, 2. Soziale Beziehungen, 3. Arbeit und Leistung, 4. Finanzielle Sicherheit, 5. Werte und Sinn.
+Psychologie & Identität;Was passiert laut Petzolds Modell, wenn die einzelnen Säulen der Identität gut "gefüllt" sind?;Je mehr die einzelnen Säulen gefüllt und ausgewogen sind, desto höher ist das allgemeine Wohlempfinden und desto stabiler und krisenfester ist die Identität eines Menschen.
+Psychologie & Identität;Welche Faktoren zählen im Modell von Petzold zur Säule "Werte und Sinn"?;Dazu gehören Lebensziele, Glaube, Spiritualität, Moral, Ethik, Liebe und Tradition. Sie geben dem Menschen Sinn, Orientierung und Kraft für sein Tun.
+Kommunikation;Auf welchen drei Grundhaltungen (nach Carl Rogers) basiert das Aktive Zuhören?;Auf Empathie (Einfühlungsvermögen), bedingungsloser Wertschätzung (Akzeptanz) und Kongruenz (Echtheit/Authentizität).
+Kommunikation;Nennen Sie vier Techniken des aktiven Zuhörens in der Pflege.;Offene Fragen stellen, Paraphrasieren (in eigenen Worten wiederholen), Verbalisieren von Gefühlen, Zusammenfassen, Schweigen aushalten und Unklares klären.
+Kommunikation;Was bedeutet die Technik "Paraphrasieren" im aktiven Zuhören?;Es bedeutet, wichtige geäusserte Gedanken und sachliche Inhalte des Gegenübers in eigenen Worten zu wiederholen, um das Verständnis zu sichern und dem Gegenüber zu zeigen, dass man zuhört.
+Kommunikation;Wie reagieren Sie beim aktiven Zuhören auf "inkongruentes Verhalten" (z.B. Patient sagt lächelnd, er habe starke Schmerzen)?;Man macht das Gegenüber behutsam und wertfrei auf den Widerspruch zwischen der verbalen Aussage und der nonverbalen Körpersprache (Mimik/Gestik) aufmerksam.
+Coping & Bewältigung;Was sind die Berner Bewältigungsformen (BEFO) und wozu dienen sie?;Es ist ein Instrument zur Beobachtung und Beurteilung der individuellen Krankheitsbewältigung. Sie helfen, Bewältigungsstrategien in ihrer Ausprägung (von 0 bis 4) durch Fremd- oder Selbsteinschätzung zu erfassen.
+Coping & Bewältigung;In welche drei Hauptkategorien werden die Berner Bewältigungsformen (BEFO) unterteilt?;1. Handlungsbezogene Bewältigung (z.B. Zupacken, Ablenkendes Anpacken), 2. Kognitionsbezogene Bewältigung (z.B. Relativieren, Problemanalyse), 3. Emotionsbezogene Bewältigung (z.B. Optimismus, Resignation).
+Coping & Bewältigung;Nennen Sie je ein Beispiel für kognitionsbezogene und emotionsbezogene Bewältigung nach BEFO.;Kognitiv: Problemanalyse, Sinngebung, Akzeptieren oder Ablenken. Emotional: Optimismus, Wut ausleben, Isolieren oder Resignation.
+Gesundheitsmodelle;Wie definiert das Biopsychosoziale Modell nach Engel Gesundheit und Krankheit?;Nicht als rein körperlichen Zustand, sondern als Ergebnis komplexer Wechselwirkungen zwischen biologischen (Körper/Genetik), psychologischen (Denkmuster/Emotionen) und sozialen Faktoren (Umfeld/Beziehungen).
+Gesundheitsmodelle;Was versteht die ICF unter "funktionaler Gesundheit" im Rahmen des Biopsychosozialen Modells?;Eine Person ist funktional gesund, wenn ihre Körperfunktionen/-strukturen der Norm entsprechen und sie alles tun kann (Aktivität) sowie an allen Lebensbereichen so teilhaben kann (Partizipation), wie es erwartet wird.
+Gesundheitsmodelle;Nennen Sie Beispiele für soziale und psychologische Faktoren im Biopsychosozialen Modell.;Soziale Faktoren: Wohnumgebung, Arbeitsbedingungen, soziales Netzwerk/Familie. Psychologische Faktoren: Stressbewältigung, Denkmuster, emotionale Stabilität, Einstellungen.
+Rehabilitation & Neurologie;Was ist das grundlegende Fundament (neurophysiologisches Prinzip) des Bobath-Konzepts?;Es basiert auf der Plastizität des Nervensystems (Neuroplastizität). Gesunde Hirnanteile werden aktiviert und gefördert, damit sie die Steuerung von gelähmten oder ausgefallenen Funktionen übernehmen können.
+Rehabilitation & Neurologie;Was versteht man im Bobath-Konzept unter "Fazilitation"?;Die gezielte pflegerische und therapeutische Anbahnung und Erleichterung von Muskelaktivität durch spezifische Handgriffe, wobei immer auf die selbst initiierte Eigenbewegung des Patienten gewartet wird.
+Rehabilitation & Neurologie;Warum ist die Rumpfaufrichtung (Kernstabilität) im Bobath-Konzept so elementar?;Sie ist die Basis für die Haltungskontrolle (posturale Kontrolle). Nur mit einem stabilen Rumpf im Schwerkraftfeld sind die Arme und Beine frei für Bewegungen. Fehlt diese, entstehen pathologische Spannungen (Spastik).
+Rehabilitation & Neurologie;An welchen neuropsychologischen Störungen orientiert sich die symptomorientierte Pflege nach Bobath?;An Ausfällen wie Spastik (assoziierte Reaktionen), Sensibilitätsstörungen, Apraxie (Handlungsstörung), Neglect-Phänomen (Vernachlässigung einer Körperhälfte), Pusher-Symptomatik und Aphasie (Sprachstörung).
+Familienzentrierte Pflege;In welche drei Hauptkategorien unterteilt das Calgary-Familien-Assessment-Modell (CFAM) die Familie?;In 1. Struktur (Wer gehört zur Familie und in welchem Kontext lebt sie?), 2. Entwicklung (In welcher familiären Lebensphase stehen sie?) und 3. Funktion (Wie interagieren sie im Alltag?).
+Familienzentrierte Pflege;Welche Subkategorien gehören im CFAM zur "Struktur" der Familie?;Die interne Struktur (Familienzusammensetzung, Geschlecht, Rangordnung), die externe Struktur (erweiterte Familie, grössere Systeme) und der Kontext (Ethnie, soziale Schicht, Religion/Spiritualität, Umgebung).
+Familienzentrierte Pflege;Wozu dient ein Genogramm in der familienzentrierten Pflege?;Es visualisiert die Familienkonstellation (Stammbaum) und zeigt komplexe Beziehungen, Rollenstrukturen sowie genetische Risiken und Belastungen über mehrere Generationen hinweg auf einen Blick.
+Familienzentrierte Pflege;Wozu dient das Calgary-Familien-Interventions-Modell (CFIM) und in welchem Verhältnis steht es zum CFAM?;Das CFIM ist das direkte Gegenstück zum Assessment-Modell (CFAM). Es dient dazu, nach der Datenerhebung gezielte pflegerische Interventionen zu identifizieren und umzusetzen, um die Familienfunktion zu fördern oder zu erhalten[cite: 248, 249, 250].
+Familienzentrierte Pflege;Auf welche drei grundlegenden Bereiche zielen die Interventionen im Calgary-Familien-Interventions-Modell (CFIM) ab?;Die Förderung und Interventionen erfolgen in den drei Bereichen Kognition (Denken/Wissen), Affekt (Gefühle) und Verhalten, wobei sich diese Bereiche gegenseitig beeinflussen[cite: 251].
+Pflegekonzepte;Was versteht man in der Pflege unter dem Begriff "Caring" nach Kristen Swanson?;Caring ist eine innere pflegerische Haltung der Achtsamkeit und Fürsorge. Sie geht über die personenzentrierte Grundhaltung hinaus und zeichnet sich durch starkes Engagement, Anteilnahme und vertrauensvollen Beistand in Krisen aus[cite: 262, 265].
+Pflegekonzepte;Nennen Sie die fünf Caring-Dimensionen nach Swanson.;1. Knowing (Bescheid wissen), 2. Being with (Mit jemandem sein), 3. Doing for (Für jemanden etwas tun), 4. Enabling (Ermöglichen/Befähigen), 5. Maintaining belief (Glaube aufrechterhalten)[cite: 266, 267, 270, 273, 276, 279].
+Pflegekonzepte;Erklären Sie die Caring-Dimension "Enabling" (Ermöglichen/Befähigen).;Die Pflegefachperson versucht, die Lebenssituation der betroffenen Person so zu erleichtern, dass diese sich (wenn möglich) wieder selbst pflegen kann. Dies geschieht durch gezielte Unterstützung, Information und das gemeinsame Erarbeiten von Lösungen[cite: 277, 278].
+Delegation;Wozu dient der Leitfaden zur Delegation und Evaluation nach Horlacher?;Er dient Pflegefachpersonen als Instrument, um die Delegation von Pflegeaufgaben an nicht diplomiertes Personal sicher, effizient und zielgerichtet durchzuführen und Risiken zu minimieren[cite: 287, 288].
+Delegation;Welche vier Hauptkriterien müssen laut Horlacher vor jeder Delegation zwingend beurteilt werden?;1. Die Patientensituation (Komplexität und Stabilität), 2. Die Pflegeaufgabe (Verletzungsrisiko und Häufigkeit der nötigen Neubewertung), 3. Erfahrung/Kompetenz der nicht-diplomierten Person, 4. Erfahrung der delegierenden diplomierten Pflegefachperson[cite: 290, 291, 293, 294, 295, 296].
+Delegation;Wie wird die "Patientensituation" im Delegationsmodell von Horlacher bewertet?;Sie wird in zwei Dimensionen eingeteilt: Die Komplexität (niedrig, mittel, hoch) und die Stabilität (hoch, mittel, niedrig). Instabile und hochkomplexe Situationen sind in der Regel nicht delegierbar[cite: 290, 291].
+Ethik & Recht;Nennen Sie die vier Schritte der ethischen Fallbesprechung nach der Nijmegener Methode in der korrekten Reihenfolge.;1. Problemdefinition, 2. Fakten sammeln, 3. Bewertung, 4. Entscheidungsfindung / Beschlussfassung[cite: 748, 750, 751, 752, 753].
+Ethik & Recht;Was geschieht im Schritt "Fakten" der Nijmegener Methode?;Es werden alle relevanten Fakten aus verschiedenen Perspektiven (medizinisch, pflegerisch, weltanschaulich, sozial und organisatorisch) zusammengetragen, um eine umfassende und interprofessionelle Beurteilung zu ermöglichen[cite: 751].
+Ethik & Recht;Worauf stützt sich der Schritt "Bewertung" in der ethischen Fallbesprechung nach der Nijmegener Methode?;Die vorliegende Situation wird anhand der vier ethischen Prinzipien (z.B. Patientenwohl, Patientenautonomie) sowie der professionellen Verantwortung der Pflegenden kritisch reflektiert[cite: 752].
+Ethik & Recht;Nennen Sie die vier klassischen ethischen Prinzipien in der Pflege.;1. Autonomie (Selbstbestimmung), 2. Gutes tun (Beneficence), 3. Nicht schaden (Nonmaleficence), 4. Gerechtigkeit (Justice)[cite: 309, 314, 318, 323].
+Ethik & Recht;Warum ist in ethischen Dilemmata oft eine "Güterabwägung" der ethischen Prinzipien zwingend nötig?;Weil keines dieser Prinzipien absolute Geltung hat. In der Praxis können Situationen entstehen, in denen die Prinzipien (z.B. Autonomie vs. Fürsorge) in direktem Widerspruch zueinander stehen, aber beide gleichzeitig relevant sind[cite: 307, 308].
+Ethik & Recht;Was umfasst das ethische Prinzip der Gerechtigkeit (Justice) in der Pflege?;Es umfasst die Pflicht, dass medizinische und pflegerische Ressourcen fair und gerecht verteilt werden und alle Menschen entsprechend ihrem individuellen Bedarf gepflegt werden[cite: 324, 325].
+Familienzentrierte Pflege;Was ist der Kernansatz der Familienzentrierten Pflege (FZP)?;Sie richtet sich nicht nur an den einzelnen Patienten, sondern bezieht die pflegenden Angehörigen und die Familie als ganzes System kontinuierlich von Beginn an in den Behandlungsplan ein[cite: 332, 333].
+Familienzentrierte Pflege;Wie wird der Begriff "Familie" in der Familienzentrierten Pflege definiert?;Als eine Gruppe von Individuen, die durch starke emotionale Bindungen und ein Zugehörigkeitsgefühl verbunden sind und gegenseitig Anteil an ihrem Leben nehmen. Sie müssen nicht zwingend blutsverwandt sein[cite: 338, 339].
+Familienzentrierte Pflege;Welchen Zweck erfüllt das "Ökogramm" in Ergänzung zum Genogramm in der Familienzentrierten Pflege?;Während das Genogramm die familiären internen Beziehungen darstellt, zeigt das Ökogramm zusätzlich die Beziehungen der Familie zu externen Kontakten (z.B. Spitex, Vereine, Arbeit) und Umwelteinflüssen auf[cite: 346, 347].
+Pflegediagnostik;Was sind die funktionellen Gesundheitsverhaltensmuster nach Gordon und wozu dienen sie?;Marjory Gordon entwickelte elf Muster (z. B. Ernährung, Ausscheidung, Schlaf), die zur systematischen Pflegeanamnese und zur Klassifizierung von Pflegediagnosen dienen[cite: 354].
+Pflegediagnostik;Was umfasst das Gesundheitsverhaltensmuster "Kognition und Perzeption" nach Gordon?;Es umfasst die sensorische Wahrnehmung und die kognitiven Fähigkeiten, inklusive Gedächtnis, Denken, Orientierung und Kommunikation[cite: 369, 370].
+Pflegediagnostik;Welches Gesundheitsverhaltensmuster nach Gordon betrachtet die Stressbewältigung einer Person?;Das Muster "Bewältigungsverhalten und Stresstoleranz". Es erfasst, wie eine Person mit Stress und Belastungen umgeht und wie effektiv ihre Bewältigungsstrategien sind[cite: 381, 382].
+Pflegediagnostik;Was wird im Gesundheitsverhaltensmuster "Werte und Überzeugungen" erfasst?;Persönliche Überzeugungen, Werte, ethische Prinzipien sowie religiöse und spirituelle Ansichten, die das Verhalten und die Entscheidungen einer Person leiten[cite: 383, 384].
+Kommunikation;Was ist das Hauptziel der Gewaltfreien Kommunikation nach Rosenberg?;Ziel ist es, in der Kommunikation aggressive Signale wie Bewertung, Schuldzuweisung oder Kritik zu vermeiden, da aggressive Sprache zu gegenseitiger Aggression führt, und stattdessen eine positive Konfliktbearbeitung zu ermöglichen[cite: 404, 405, 407].
+Kommunikation;Nennen Sie die vier Schritte der Gewaltfreien Kommunikation nach Rosenberg.;1. Beobachten (ohne zu bewerten), 2. Gefühle erkennen und benennen, 3. Bedürfnisse wahrnehmen und ernst nehmen, 4. Klare und erfüllbare Anliegen (Bitten) formulieren[cite: 408, 409, 410, 411, 412].
+Kommunikation;Was bedeutet der Schritt "Beobachten statt bewerten" in der Gewaltfreien Kommunikation?;Es wird darauf geachtet, konkrete und sachliche Beobachtungen einer Situation zu schildern, ohne diese direkt mit eigenen Interpretationen oder moralischen Bewertungen zu vermischen[cite: 409].
+Kommunikation;Wie werden die Schritte der Gewaltfreien Kommunikation in der Interaktion angewendet (zwei Formen)?;In Form der "Selbstmitteilung" (eigene Gefühle und Bedürfnisse ausdrücken) oder der "Einfühlsamkeit" (die Bedürfnisse des Gegenübers empathisch erkunden, um eine Verbindung herzustellen)[cite: 413, 414].
+Beratung & Support;Wofür steht das Akronym GROW und wo wird dieses Modell in der Pflege angewendet?;G: Goal (Ziel), R: Reality (Realität/Ist-Zustand), O: Options (Optionen), W: Way forward / Will (Wille/Umsetzung). Ursprünglich aus dem Coaching, wird es in der Pflege erfolgreich für zielgerichtete Beratungsgespräche genutzt[cite: 458, 460, 462, 464, 466].
+Beratung & Support;Was geschieht in der "Reality"-Phase (R) des GROW-Modells?;Der Ist-Zustand wird erfasst. Die aktuelle Situation wird geklärt und das Bewusstsein für das Problem oder die Ausgangslage beim Patienten gebildet[cite: 462, 463].
+Beratung & Support;Was wird in der Phase "Way forward / Will" (W) im GROW-Modell festgelegt?;Es werden konkrete Handlungsschritte definiert: Was wird wann, von wem und wie getan? Zudem werden mögliche Hindernisse und Stolpersteine im Vorfeld erfasst und diskutiert[cite: 466, 467].
+Zusammenarbeit & Führung;Nennen Sie die fünf Phasen der Teamentwicklung nach Tuckmann.;1. Orientierungsphase (Forming), 2. Kampf- oder Konfliktphase (Storming), 3. Normierungsphase (Norming), 4. Integrationsphase (Performing), 5. Auflösungsphase (Adjourning)[cite: 424, 430, 435, 440, 449].
+Zusammenarbeit & Führung;Was kennzeichnet die "Storming"-Phase (Kampfphase) in der Teamentwicklung?;Nach einer ersten Kennenlernphase treten Frustrationen und Krisenstimmungen auf, wenn Erwartungen nicht übereinstimmen. Es kommt zu Konflikten (oft unsachlich) und der Bildung von Untergruppen[cite: 431, 432, 433, 434].
+Zusammenarbeit & Führung;Was passiert in der "Norming"-Phase (Normierungsphase) der Gruppe?;Es entwickeln und festigen sich Umgangsformen, Rollen und Aufgabenverteilungen. Das Team arbeitet kooperativer, anerkennt die Leistungen anderer und beginnt sich zunehmend selbst zu organisieren[cite: 436, 437, 438, 439].
+Zusammenarbeit & Führung;Wie verhält sich ein Team in der "Performing"-Phase (Integrationsphase)?;Es entsteht ein starkes "Wir-Gefühl". Die Gruppenstruktur ist klar definiert, der Informationsfluss ist gut, und die gesamte Energie kann effizient und hochmotiviert auf die Aufgabenbewältigung konzentriert werden[cite: 441, 442, 447, 448].
+Kommunikation;Was ist das Hauptziel des Harvard-Konzepts?;Es ist ein Verhandlungsansatz für einen konstruktiven und friedlichen Konsens. Das Ziel ist eine faire Einigung, bei der für alle beteiligten Parteien der grösste Nutzen entsteht (Win-Win-Situation)[cite: 474, 475, 476].
+Kommunikation;Nennen Sie die vier Prinzipien des Harvard-Konzepts.;1. Mensch und Problem trennen, 2. Erfassung der Interessen (statt starrer Positionen), 3. Vorteilhafte Optionen für alle erarbeiten, 4. Neutral beurteilen anhand objektiver Kriterien[cite: 478, 481, 484, 486].
+Kommunikation;Was bedeutet der Grundsatz "Mensch und Problem trennen" im Harvard-Konzept?;Emotionales Befinden und subjektive Wahrnehmungen sollen strikt vom sachlichen Problem getrennt werden, um persönliche Konflikte zu reduzieren und sachliche Dialoge zu ermöglichen[cite: 479, 480].
+Kommunikation;Warum fokussiert das Harvard-Konzept auf "Interessen" statt auf "Positionen"?;Das Festhalten an starren Positionen blockiert Lösungen. Das Verstehen der zugrunde liegenden Interessen und Bedürfnisse aller Parteien ermöglicht es, gemeinsame Lösungen zu finden, die diese Bedürfnisse berücksichtigen[cite: 482, 483].
+Gesundheitsmodelle;Worin liegt der Unterschied zwischen "Illness" und "Disease" nach dem SRK-Erklärungsmodell?;Illness ist die subjektive Wahrnehmung und Erfahrung der Krankheit durch den Patienten. Disease ist die Krankheit aus medizinischer Perspektive, definiert durch objektive Symptome und ärztliche Diagnosen[cite: 493, 495, 499, 500].
+Gesundheitsmodelle;Wodurch wird das subjektive Erleben von Krankheit ("Illness") massgeblich geprägt?;Es wird stark durch individuelle und soziokulturelle Faktoren wie Sozialisation, Biografie, Persönlichkeit, soziale Ressourcen und den sozioökonomischen Kontext der betroffenen Person beeinflusst[cite: 496, 497].
+Gesundheitsmodelle;Kann eine Person ein "Disease" haben, ohne eine "Illness" zu verspüren (und umgekehrt)?;Ja. Jemand kann medizinisch krank sein (z. B. Frühstadium eines Tumors), ohne sich krank zu fühlen. Umgekehrt kann sich jemand subjektiv krank fühlen (Illness), ohne dass ein ärztlich messbarer Befund (Disease) vorliegt[cite: 501, 502, 503].
+Gesundheitsmodelle;Was ist die grösste Herausforderung für Pflegefachpersonen im Umgang mit dem Illness-Disease-Modell?;Die Herausforderung liegt darin, nicht nur das "Disease" zu behandeln, sondern das subjektive Krankheitserleben ("Illness") des Patienten im jeweiligen soziokulturellen Kontext richtig zu verstehen und in die Pflege einzubeziehen[cite: 504].
+Pflegemodelle;Was ist der Fokus des Illness-Trajectory Modells nach Corbin und Strauss?;Das Modell fokussiert sich auf den Krankheitsverlauf einer chronischen Krankheit und deren Auswirkungen auf die Betroffenen und ihre Bezugspersonen[cite: 550].
+Pflegemodelle;Wie beschreiben Corbin und Strauss die Krankheitsverlaufskurve?;Sie ist individuell, durch Schwankungen und verschiedene Phasen gekennzeichnet und wird von der Krankheit, den Reaktionen und den Bewältigungsstrategien beeinflusst[cite: 554, 555].
+Pflegemodelle;Nennen Sie Beispiele für Phasen der Krankheitsverlaufskurve nach Corbin und Strauss.;Das Modell umfasst neun Phasen, darunter die akute (Acute), stabile (Stable), instabile (Unstable) und kritische Phase (Crisis)[cite: 557, 558, 559, 562, 563, 564, 565].
+Pflegemodelle;Welche Bedeutung haben "Biografie und Arbeit" im Illness-Trajectory Modell?;Chronische Krankheiten erfordern umfassende Bewältigungsarbeit, die biografische, krankheitsbezogene und alltagsbezogene Aspekte umfasst, welche miteinander verknüpft sind und ständig angepasst werden müssen[cite: 574, 575].
+Psychologie & Krisen;Wodurch entstehen Krisen im Modell von Caplan?;Krisen entstehen durch Veränderungen im Leben, insbesondere wenn Menschen sich an neue Lebensphasen anpassen müssen und bisherige Bewältigungsstrategien versagen[cite: 598, 601].
+Psychologie & Krisen;Nennen Sie die vier Hauptphasen der Krise nach Caplan.;1. Konfrontation, 2. Mobilisierung, 3. Vollbild der Krise, 4. Bewältigung / Neuorientierung[cite: 600, 602, 605, 608, 610].
+Psychologie & Krisen;Was geschieht in Caplans Phase "Vollbild der Krise"?;Wenn die Belastung nicht bewältigt werden kann, eskaliert die Krise. Es kommt zu Rat- und Orientierungslosigkeit, Verzweiflung und gegebenenfalls zu selbst- oder fremdgefährdendem Verhalten[cite: 606, 607].
+Psychologie & Krisen;Welche Art von Krisen beschreibt das Krisenmodell nach Cullberg?;Es beschreibt traumatische Krisen als Reaktion auf plötzliche, schwere Schicksalsschläge, welche die psychische Existenz bedrohen und häufig zu einem Trauerprozess führen[cite: 635, 636].
+Psychologie & Krisen;Nennen Sie die vier Krisenphasen nach Cullberg.;1. Schockphase, 2. Reaktionsphase, 3. Verarbeitungsphase, 4. Phase der Neuorientierung[cite: 637, 638, 641, 644, 647].
+Psychologie & Krisen;Wie äussert sich die Schockphase nach Cullberg und wie lange kann sie dauern?;Sie ist gekennzeichnet durch Desorientierung und emotionale Taubheit und kann einige Sekunden bis zu zwei Wochen dauern[cite: 639, 640].
+Edukation;Was ist eine Mikroschulung und welches Ziel verfolgt sie?;Es ist eine 15 bis 30-minütige Lerneinheit, die strukturiert spezifische Fertigkeiten und Wissen vermittelt, um Pflegeempfänger zur selbstständigen Durchführung von Massnahmen zu ermutigen[cite: 676, 677].
+Edukation;Warum ist der erste Schritt der Mikroschulung ("Vorwissen ermitteln") so wichtig?;Um unnötige Wiederholungen zu vermeiden, Desinteresse vorzubeugen und um Schwächen oder Fehlinformationen zu erkennen, damit die Lerneinheit angepasst werden kann[cite: 680, 681].
+Edukation;Wie sollte die Erfolgsüberprüfung am Ende einer Mikroschulung durchgeführt werden?;Die Frage "Haben Sie alles verstanden?" ist ungeeignet. Stattdessen sollten spezifische Fragen gestellt werden, wie z.B. "Zeigen Sie mir noch einmal, wie..." oder "Wie würden Sie vorgehen, wenn...?"[cite: 704].
+Pflegemodelle;Was ist das Ziel der Pflege nach dem Modell der 14 Grundbedürfnisse von Virginia Henderson?;Die Patientin/den Patienten bei der Befriedigung der 14 Grundbedürfnisse so zu unterstützen, dass diese Person möglichst schnell wieder unabhängig und selbstständig wird (Hinweis: Das Modell ist im Skript nur als Fakultativliteratur gelistet, daher stammt diese Antwort aus dem allgemeinen Pflegewissen).
+Pflegemodelle;Nennen Sie Beispiele für die 14 Grundbedürfnisse nach Henderson.;Normal atmen, ausreichend essen und trinken, Körpertemperatur halten, sich sauber halten sowie kommunizieren und Gefühle ausdrücken.
+Beratung & Support;Was ist das Hauptziel der Motivierenden Gesprächsführung (MI) nach Miller und Rollnick?;Sie zielt darauf ab, die Ambivalenz des Klienten zwischen dem Beibehalten des Problemverhaltens und der Veränderung zu adressieren, um Verhaltensänderungen im Einklang mit eigenen Werten zu fördern[cite: 719, 720].
+Beratung & Support;Auf welchen vier Elementen basiert die Grundhaltung der Motivierenden Gesprächsführung?;Auf Partnerschaftlichkeit (Augenhöhe), Akzeptanz (bedingungslose Wertschätzung/Empathie), Mitgefühl und Evokation[cite: 722, 723, 727, 730, 731].
+Beratung & Support;Was bedeutet das Prinzip der "Evokation" in der MI?;Es bedeutet, die vorhandenen Bewältigungsressourcen des Klienten aufzudecken und hervorzuholen, anstatt sich auf die Beseitigung von Defiziten zu konzentrieren oder Fachwissen überzustülpen[cite: 731].
+Beratung & Support;Wie geht man in der Motivierenden Gesprächsführung mit Widerständen und Ambivalenzen um?;Widerständen wird nicht konfrontativ begegnet. Stattdessen werden Pro und Contra diskutiert und "Change Talk" (Aussagen, die für eine Veränderung sprechen) wird aktiv angeregt[cite: 740].
+Kommunikation;Wofür steht das Akronym NURSE und in welcher Situation wird es angewendet?;Es steht für Naming, Understanding, Respecting, Supporting, Exploring und bietet Techniken im Umgang mit emotionalen Äusserungen von Patienten[cite: 776, 777, 780, 782, 784, 787].
+Kommunikation;Was bedeutet der Schritt "Naming" (N) im NURSE-Modell?;Die Emotionen des Patienten werden benannt, um seine Wahrnehmung wiederzugeben, sofern er seine Gefühle nicht bereits selbst ausgedrückt hat[cite: 778, 779].
+Kommunikation;Wie wird die Phase "Supporting" (S) im NURSE-Modell korrekt umgesetzt?;Die Unterstützung wird als Angebot formuliert, um dem Patienten zu helfen, ohne diese sofort aufzudrängen oder umzusetzen[cite: 785, 786].
+Qualitätsmanagement;Wofür wird der PDCA-Zyklus nach Deming in der Pflege primär eingesetzt?;Er wird für die Umsetzung und Sicherung von Qualität empfohlen und kann direkt innerhalb des Pflegeprozesses angewendet werden[cite: 885].
+Qualitätsmanagement;Wofür stehen die vier Buchstaben im PDCA-Zyklus?;Plan (Planen), Do (Umsetzen/Durchführen im kleinen Massstab), Check (Überprüfen/Auswerten) und Act (Handeln/Standardisieren)[cite: 886, 893, 896, 898].
+Qualitätsmanagement;Was sind typische Aufgaben in der "Plan"-Phase des PDCA-Zyklus?;Den Ist-Zustand ermitteln, das Problem und Ziel beschreiben, Lösungen erarbeiten sowie einen Massnahmenplan erstellen[cite: 887, 888, 889, 890, 891].
+Qualitätsmanagement;Was geschieht in der "Act"-Phase des PDCA-Zyklus?;Die erfolgreichen Massnahmen werden als neue Standards vereinbart, dokumentiert und dauerhaft in den Arbeitsablauf integriert[cite: 899].
+Kommunikation;Welche drei wesentlichen Haltungen prägen die personenzentrierte Therapie nach Carl Rogers?;Empathie (Einfühlungsvermögen), bedingungslose Wertschätzung (Akzeptanz) und Kongruenz (Echtheit)[cite: 799].
+Kommunikation;Was versteht Carl Rogers unter "Kongruenz" in der pflegerischen Kommunikation?;Kongruenz bedeutet Echtheit. Es bedeutet, klare, verständliche Botschaften zu senden, bei denen Körpersprache und verbale Aussagen übereinstimmen, ohne Zuneigung oder Zeit vorzutäuschen[cite: 807, 808, 810].
+Kommunikation;Warum ist die "bedingungslose Wertschätzung" laut Rogers so entscheidend für die Pflegebeziehung?;Sie vermittelt dem Gegenüber, dass es als Individuum wahrgenommen und unvoreingenommen akzeptiert wird, selbst wenn es sich einmal nicht erwartungskonform verhält[cite: 804, 805].
+Pflegeprozess;In welchem Schritt des Pflegeprozesses ist der pflegediagnostische Prozess angesiedelt und was geschieht dort grundlegend?;Er ist der zweite Schritt des Pflegeprozesses. Die im Assessment erhobenen Daten werden interpretiert und ausgewertet, um Pflegediagnosen zu erstellen[cite: 863].
+Pflegeprozess;Wo finden Studierende der XUND detaillierte Informationen zum pflegediagnostischen Prozess?;Der ausführliche pflegediagnostische Prozess wird spezifisch im Pflegeprozess-Skript der XUND in Kapitel 4 behandelt[cite: 880].
+Pflegeprozess;Wie wird der Pflegeprozess generell definiert?;Er ist ein logischer, patientenzentrierter, zielgerichteter und systematischer Denk- und Handlungsprozess in aufeinander aufbauenden Phasen, um bestimmte Pflegeziele zu erreichen[cite: 838, 839].
+Pflegeprozess;Nennen Sie die fünf Phasen des Pflegeprozesses nach Müller-Staub.;1. Pflegeassessment, 2. Pflegediagnose, 3. Ergebnis / Planung (Pflegeziele und -interventionen), 4. Pflegeinterventionen (Durchführung), 5. Pflegeevaluation[cite: 858, 862, 864, 867, 870].
+Pflegeprozess;Was ist das Hauptziel in der Phase der "Pflegeevaluation"?;Es wird überprüft, ob die festgelegten Ziele erreicht wurden. Werden die Ziele nicht erreicht, wird jeder Schritt des Pflegeprozesses kritisch hinterfragt und angepasst[cite: 872, 873].
+Rehabilitation;Was ist das primäre Ziel der medizinischen Rehabilitation?;Funktionsstörungen zu verhindern oder deren Auswirkungen zu minimieren, um dauerhafte Beeinträchtigungen zu vermeiden und die soziale Integration der betroffenen Menschen zu ermöglichen[cite: 979, 980].
+Rehabilitation;Was kennzeichnet die Phase A im Phasenmodell der neurologischen Rehabilitation?;Phase A ist die Akutbehandlung (inkl. Intensivmedizin). Sie ist abgeschlossen, wenn keine vitale Bedrohung mehr besteht und eine weitere Mobilisation medizinisch möglich ist[cite: 984, 985, 986].
+Rehabilitation;In welcher Phase der Rehabilitation befinden sich stark bewusstseinsgetrübte Patienten und was ist das Ziel?;In Phase B. Das Hauptziel ist es, die grundlegenden Voraussetzungen für eine kooperative Mitarbeit im weiteren Rehabilitationsprozess zu schaffen[cite: 990, 991].
+Rehabilitation;Wodurch zeichnet sich die Phase C im Rehabilitationsmodell aus?;Der Patient ist weitgehend bei Bewusstsein und nimmt an Therapien teil, benötigt jedoch noch Unterstützung bei den Aktivitäten des täglichen Lebens (ATL). Ziel ist die Wiederherstellung motorischer/neurophysiologischer Grundfunktionen[cite: 993, 994, 995].
+Rehabilitation;Für wen ist die Phase F im Phasenmodell der Rehabilitation vorgesehen?;Für Personen, die in den vorherigen Phasen keine Fortschritte mehr erzielen konnten und zur Erhaltung ihrer Lebensqualität dauerhaft unterstützende, betreuende oder zustandserhaltende Leistungen benötigen[cite: 1005, 1006].
+Psychologie & Entwicklung;Was beschreibt die Theorie der psychosozialen Entwicklung nach Erik H. Erikson grundlegend?;Sie beschreibt, wie die Entwicklung von der Kindheit bis zum Erwachsenenalter durch soziale Faktoren (Kultur, Beziehungen, gesellschaftliche Normen) beeinflusst wird.
+Psychologie & Entwicklung;Wie ist jede Entwicklungsphase im Modell von Erikson charakterisiert?;Jede der acht Phasen ist durch zwei Pole bzw. einen Konflikt gekennzeichnet (z.B. Urvertrauen vs. Urmisstrauen), den das Individuum lösen muss, um eine gesunde Persönlichkeit zu entwickeln.
+Psychologie & Entwicklung;Nennen Sie drei Beispiele für die acht Konfliktpaare (Stadien) nach Erikson.;1. Urvertrauen vs. Urmisstrauen (Säugling), 2. Autonomie vs. Scham/Zweifel (Kleinkind), 3. Identität vs. Identitätsdiffusion (Adoleszenz).
+Zusammenarbeit & Führung;Was versteht man unter einer "Teamrolle" nach dem Modell von Meredith Belbin?;Eine Teamrolle ist eine Reihe von Verhaltensmerkmalen, die für den Erfolg eines Teams entscheidend sind. Erfolgreiche Teams brauchen eine vielfältige Mischung aus verschiedenen individuellen Stärken und Rollen.
+Zusammenarbeit & Führung;In welche drei Hauptkategorien werden die Teamrollen nach Belbin unterteilt?;1. Handlungsorientierte Rollen, 2. Kommunikationsorientierte Rollen, 3. Wissensorientierte Rollen.
+Zusammenarbeit & Führung;Nennen Sie die drei handlungsorientierten Rollen nach Belbin.;Macher/in (dynamisch, entscheidungsfreudig), Umsetzer/in (zuverlässig, strukturiert) und Perfektionist/in (genau, pünktlich).
+Zusammenarbeit & Führung;Welche Rolle nimmt der/die "Erfinder/in" (Plant) in einem Team nach Belbin ein?;Er/Sie gehört zu den wissensorientierten Rollen, ist kreativ und findet unübliche Lösungen, neigt aber dazu, Details zu übersehen.
+Pflegemodelle;Was sind die zentralen Elemente des Pflegemodells nach Roper, Logan und Tierney (RLT-Modell)?;Das Modell basiert auf fünf Hauptkomponenten: 1. Lebensspanne, 2. Abhängigkeits-/Unabhängigkeitskontinuum, 3. Lebensaktivitäten (LA), 4. Einflussfaktoren, 5. Individualität im Leben. (Hinweis: Fakultativliteratur).
+Pflegemodelle;Wofür stehen die "Lebensaktivitäten" (LA) im RLT-Modell und wozu dienen sie?;Es gibt 12 Lebensaktivitäten (z.B. Atmen, Kommunizieren, Schlafen, sich waschen). Sie dienen als Struktur, um den Pflegebedarf und die Selbstständigkeit des Patienten in diesen grundlegenden Bereichen einzuschätzen.
+Pflegemodelle;Welche Faktoren beeinflussen nach dem RLT-Modell die Lebensaktivitäten eines Menschen?;Biologische, psychologische, soziokulturelle, umgebungsabhängige und wirtschaftspolitische Faktoren beeinflussen, wie ein Mensch seine Lebensaktivitäten ausführen kann.
+Gesundheitsförderung;Was ist die zentrale Fragestellung der Salutogenese nach Antonovsky im Gegensatz zur Pathogenese?;Die Salutogenese fragt "Warum und wie bleiben Menschen trotz gesundheitsschädigender Einflüsse und Stressoren gesund?", während die Pathogenese primär fragt, was Menschen krank macht.
+Gesundheitsförderung;Erklären Sie das "Gesundheits-Krankheits-Kontinuum" nach Antonovsky.;Gesundheit und Krankheit sind keine getrennten Zustände. Ein Mensch ist nie völlig gesund oder völlig krank, sondern bewegt sich als dynamischer Prozess stets auf einer Linie (Kontinuum) zwischen diesen beiden Polen.
+Gesundheitsförderung;Was sind "Widerstandsressourcen" im Modell der Salutogenese?;Es sind Merkmale und Eigenschaften (z.B. Immunsystem, Intelligenz, finanzieller Rückhalt, soziales Netzwerk), die eine effektive Spannungsverarbeitung und Bewältigung von Belastungen (Stressoren) ermöglichen.
+Gesundheitsförderung;Nennen Sie die drei Komponenten, aus denen sich das Kohärenzgefühl (Sense of Coherence) zusammensetzt.;1. Verstehbarkeit (Ereignisse sind strukturiert und erklärbar), 2. Handhabbarkeit (Ressourcen zur Bewältigung sind vorhanden), 3. Sinnhaftigkeit (Herausforderungen haben einen Sinn und lohnen sich).
+Psychologie & Resilienz;Worauf basieren die "Säulen der Resilienz" nach Emmy Werner?;Sie basieren auf Werners Langzeitstudie, die untersuchte, warum sich einige Kinder trotz widriger Umstände (Armut, Vernachlässigung) zu psychisch gesunden Erwachsenen entwickelten (Resilienz). (Hinweis: Fakultativliteratur).
+Psychologie & Resilienz;Was versteht man generell unter dem Begriff "Resilienz"?;Die psychische Widerstandskraft, Krisen, Rückschläge oder traumatische Erfahrungen durch Rückgriff auf persönliche und sozial vermittelte Ressourcen zu bewältigen und gestärkt daraus hervorzugehen.
+Psychologie & Resilienz;Nennen Sie klassische Schutzfaktoren (Säulen) der Resilienz nach Werner.;Wichtige Säulen sind unter anderem Optimismus, Akzeptanz der Situation, Lösungsorientierung, Selbstwirksamkeit, Eigenverantwortung sowie ein stützendes soziales Netzwerk.
+Edukation;Welche Strukturähnlichkeit weist der Schulungsprozess in der Patientenedukation auf?;Der Schulungsprozess besteht aus einer Reihe systematischer Schritte und weist starke inhaltliche und strukturelle Parallelen zum allgemeinen Pflegeprozess auf.
+Edukation;Nennen Sie die vier zentralen Phasen des Schulungsprozesses.;1. Einschätzung des Schulungsbedarfs, 2. Zielvereinbarung, 3. Durchführung der Schulung, 4. Erfolgsüberprüfung.
+Edukation;Was passiert in der Phase "Einschätzung des Schulungsbedarfs"?;Die Schulungsperson informiert sich (z.B. mittels Anamnese) über das Vorwissen, die Motivation, die Krankheits- und Lebenssituation sowie die Probleme und Ressourcen der lernenden Person.
+Edukation;Worauf muss bei der "Durchführung der Schulung" besonders geachtet werden?;Sie muss unter Anwendung verschiedener Lernmethoden erfolgen und zwingend an die Vorkenntnisse, die Erfahrungen und das individuelle Lerntempo der lernenden Person angepasst werden.
+Psychologie & Resilienz;Wie werden die Schutzfaktoren im Resilienzmodell grundsätzlich eingeteilt?;In externe Schutzfaktoren (Ressourcen aus der Umwelt) und interne Schutzfaktoren (personale Eigenschaften).
+Psychologie & Resilienz;Nennen Sie Beispiele für externe Schutzfaktoren (Ressourcen) nach dem Resilienzmodell.;Kultur, Gesellschaft, das unmittelbare Umfeld (wie Schule oder Nachbarschaft) und vor allem die Familie als Mikrosystem.
+Psychologie & Resilienz;Welche internen (personalen) Schutzfaktoren begünstigen die Resilienz eines Individuums?;Eigenschaften wie Intelligenz, ein aktives Temperament und eine sichere Bindung zu primären Bezugspersonen.
+Psychologie & Resilienz;Nennen Sie Faktoren, die als Belastungs- oder Risikofaktoren die Resilienz verringern können.;Armut, soziale Konflikte, beengte Wohnverhältnisse, chronische Krankheiten der Eltern oder abwesende/wechselnde Bezugspersonen.
+Psychologie & Identität;Wie wird das Selbstkonzept nach Käppeli definiert?;Als die Gesamtheit der Überzeugungen und Vorstellungen (kognitive Repräsentation), die eine Person über sich selbst entwickelt hat (oft synonym zum Begriff "Selbstbild" verwendet).
+Psychologie & Identität;Welche Faktoren beeinflussen die Selbstbewertung und damit das Selbstkonzept einer Person massgeblich?;Körperliche Leistungsfähigkeit, körperliches Aussehen, konvergentes Denken, akademische Fähigkeiten sowie die Qualität der sozialen Beziehungen.
+Psychologie & Identität;Welchen Einfluss haben "kritische Lebensereignisse" auf das Selbstkonzept?;Nicht-normative Ereignisse (wie Arbeitsplatzverlust, Unfall oder schwere Krankheit) sowie normative Phasen (wie Adoleszenz) können das Selbstkonzept signifikant verändern oder erschüttern.
+Pflegemodelle;Was steht im Zentrum des Selbstpflegemodells von Dorothea Orem?;Die Selbstpflege (Self-Care), also die Handlungen, die Menschen selbst initiieren und durchführen, um ihr Leben, ihre Gesundheit und ihr Wohlbefinden zu erhalten. (Fakultativliteratur)
+Pflegemodelle;Wann entsteht nach Orem ein "Selbstpflegedefizit"?;Ein Defizit entsteht, wenn der situative Selbstpflegebedarf einer Person grösser ist als ihre aktuellen Fähigkeiten (Selbstpflegekompetenz), diesen Bedarf eigenständig zu decken.
+Pflegemodelle;Welche drei Pflegesysteme beschreibt Orem, um ein Selbstpflegedefizit auszugleichen?;1. Vollständig kompensatorisches System (Pflege übernimmt alles), 2. Teilweise kompensatorisches System (Zusammenarbeit), 3. Unterstützend-erzieherisches System (Beratung/Anleitung).
+Kommunikation & Ethik;Wozu dient das SPIKES-Modell in der medizinisch-pflegerischen Praxis?;Es bietet Fachpersonen eine praxisnahe und strukturierte Anleitung, um emotionale und belastende Aufklärungsgespräche (das Überbringen schlechter Nachrichten) effektiv zu führen.
+Kommunikation & Ethik;Was beinhaltet der erste Schritt "Setting up" (Situation) im SPIKES-Modell?;Die Vorbereitung auf emotionale Reaktionen und die Schaffung einer ruhigen, störungsfreien Umgebung ohne Zeitdruck mit einer angemessenen Sitzposition.
+Kommunikation & Ethik;Wie erfassen Sie im Schritt "Patientenvorwissen" (Perception) die Wahrnehmung des Patienten?;Durch offene Fragen (z.B. "Was wissen Sie über Ihren Zustand?") wird ermittelt, welchen Kenntnisstand und welche Vorahnungen der Patient bereits hat.
+Kommunikation & Ethik;Worauf muss bei der Vermittlung der schlechten Nachricht ("Knowledge") besonders geachtet werden?;Vorwarnung geben ("Es folgt eine schwierige Nachricht"), Informationen in kleinen Einheiten ohne Fachjargon vermitteln, Verständnis prüfen und beschönigende Formulierungen vermeiden.
+Kommunikation & Ethik;Wie sollte das Fachpersonal im Schritt "Emotions/Empathy" auf Reaktionen des Patienten reagieren?;Emotionen anerkennen, Schweigen aushalten, körperliche Nähe/Taschentücher anbieten und erst im Gespräch weitergehen, wenn der Patient wieder stabiler ist.
+Palliative Care;Nennen Sie die fünf Phasen der Auseinandersetzung mit dem Tod nach Elisabeth Kübler-Ross in ihrer klassischen Abfolge.;1. Nicht-wahrhaben-wollen, 2. Zorn, 3. Verhandeln, 4. Depression, 5. Annahme/Akzeptanz.
+Palliative Care;Müssen Sterbende zwingend alle fünf Phasen nach Kübler-Ross nacheinander durchlaufen?;Nein. Die Phasen sind nicht starr. Menschen können Phasen überspringen, in alte Phasen zurückfallen oder mehrere gleichzeitig erleben. Nicht jeder erreicht die Akzeptanz.
+Palliative Care;Wie äussert sich die Phase "Nicht-wahrhaben-wollen" und wie reagieren Pflegende professionell darauf?;Betroffene leugnen die Diagnose (Schock/Erstarrung). Pflegende sollten dies respektieren, nicht mit weiteren Fakten konfrontieren, aber gesprächsbereit bleiben, ohne sich aufzudrängen.
+Palliative Care;Was kennzeichnet die Phase des "Verhandelns" nach Kübler-Ross?;Der Betroffene klammert sich an Hoffnungen und versucht, durch Versprechungen (oft an Gott oder das Schicksal) oder extrem gesundes Verhalten noch Lebenszeit "herauszuschlagen".
+Palliative Care;Wer hat das Konzept "Total Pain" geprägt und worum geht es dabei im Kern?;Cicely Saunders (1967) prägte den Begriff. Es verdeutlicht, dass Schmerz am Lebensende multidimensional ist und nicht nur aus rein körperlichen Beschwerden besteht.
+Palliative Care;Nennen Sie die vier Dimensionen des Schmerzes im Total-Pain-Konzept.;1. Physische Dimension (Körper), 2. Psychische/Emotionale Dimension, 3. Soziale Dimension, 4. Spirituelle Dimension.
+Palliative Care;Was umfasst die "soziale Dimension" im Total-Pain-Konzept?;Sorgen um die Familie, den Verlust der sozialen Rolle und des Berufs sowie die Angst vor dem Abschied von Familie und Freunden.
+Palliative Care;Warum ist das Verständnis von Total Pain für die Schmerztherapie in der Palliative Care so wichtig?;Weil sich die vier Dimensionen gegenseitig verstärken. Körperliche Schmerzmittel wirken oft nicht ausreichend, wenn z.B. schwere ungelöste psychische oder spirituelle Nöte vorliegen.
+Kommunikation & Psychologie;Was beschreibt die Transaktionsanalyse (TA) nach Eric Berne grundlegend?;Sie beschreibt, wie soziale Interaktionen durch drei Ich-Zustände geprägt werden: das kindliche Ich, das Eltern-Ich und das Erwachsenen-Ich[cite: 1237].
+Kommunikation & Psychologie;Was versteht die Transaktionsanalyse unter "komplementären" und "überschneidenden" Transaktionen?;Komplementär: Die Ich-Zustände der Gesprächspartner stimmen überein (erfolgreich)[cite: 1238]. Überschneidend: Die Ich-Zustände stimmen nicht überein, was zu Missverständnissen und Konflikten führt[cite: 1239].
+Kommunikation & Psychologie;Wie ist das "Eltern-Ich" in der Transaktionsanalyse definiert?;Es besteht aus Normen, Regeln und Prinzipien, die in den ersten fünf Lebensjahren von den Eltern übernommen wurden[cite: 1245]. Es wird in ein fürsorgliches und ein kritisches Eltern-Ich unterteilt[cite: 1246].
+Kommunikation & Psychologie;Was kennzeichnet das "Erwachsenen-Ich" nach Eric Berne?;Es bewertet Situationen, denkt rational und berücksichtigt die Folgen des eigenen Handelns[cite: 1248].
+Psychologie & Entwicklung;Was betrachtet das Transitionsmodell (z.B. nach Griebel) im Kern?;Es betrachtet Lebensereignisse (Übergänge), die Veränderungen auf individueller, interaktionaler und kontextueller Ebene erfordern und durch deren Bewältigung Entwicklung angeregt wird[cite: 1303].
+Psychologie & Entwicklung;Warum sind Transitionen für die Entwicklung wichtig?;Weil sie die Auseinandersetzung mit neuen gesellschaftlichen Anforderungen erfordern[cite: 1304].
+Psychologie & Entwicklung;Nennen Sie drei typische Beispiele für Übergänge im Lebenslauf (Transitionsmodell).;Der Übergang in die Schule [cite: 1307], der Übergang in den Beruf [cite: 1309] oder die neue Rolle als Eltern[cite: 1310].
+Gesundheitsförderung & Edukation;Wozu dient das Transtheoretische Modell im Gesundheitswesen?;Es beschreibt verschiedene Stufen der Verhaltensänderung, die Menschen durchlaufen, um gesundheitsschädliche Gewohnheiten aufzugeben oder gesundheitsförderliche Verhaltensweisen zu etablieren[cite: 1318].
+Gesundheitsförderung & Edukation;Was kennzeichnet die Phase der "Absichtslosigkeit" (Precontemplation) im Transtheoretischen Modell?;Es besteht keine Absicht, das problematische Verhalten in naher Zukunft zu ändern[cite: 1321]. Die Person erkennt das Problem nicht oder unterschätzt die negativen Auswirkungen[cite: 1322].
+Gesundheitsförderung & Edukation;In welcher Phase des Transtheoretischen Modells werden erste konkrete Schritte geplant?;In der Phase "Vorbereitung" (Preparation)[cite: 1328]. Die Person hat einen konkreten Plan und ist bereit, in naher Zukunft zu handeln[cite: 1329, 1330].
+Gesundheitsförderung & Edukation;Was ist das Ziel in der Phase der "Aufrechterhaltung" (Maintenance)?;Das veränderte Verhalten wird bereits länger als sechs Monate beibehalten[cite: 1336]. Die Person arbeitet aktiv daran, Rückfälle zu vermeiden und das neue Verhalten zu festigen[cite: 1337].
+Palliative Care & Trauer;Wie viele Phasen beschreibt das Trauermodell nach Kübler-Ross und wie verlaufen diese?;Es beschreibt fünf Phasen, die Menschen im Sterbe- und Trauerprozess durchlaufen[cite: 1416]. Diese Phasen sind nicht streng sequenziell, treten aber typischerweise auf[cite: 1417].
+Palliative Care & Trauer;Nennen Sie die fünf Phasen des Trauermodells nach Kübler-Ross.;1. Verleugnung und Isolation [cite: 1419], 2. Wut [cite: 1420], 3. Verhandeln [cite: 1421], 4. Depression [cite: 1422], 5. Akzeptanz[cite: 1423].
+Palliative Care & Trauer;Was geschieht in der Trauerphase der "Depression" nach Kübler-Ross?;Es treten Gefühle von Desinteresse, Antriebslosigkeit und emotionaler Erschöpfung auf[cite: 1422].
+Soziologie & Entwicklung;Wozu dienen "Übergangsriten" nach dem Konzept von Arnold van Gennep?;Sie helfen Menschen, sichere Übergänge zwischen Lebensabschnitten oder sozialen Zuständen zu vollziehen[cite: 1281].
+Soziologie & Entwicklung;Nennen Sie die drei Phasen eines Übergangsrituals nach van Gennep.;1. Ablösungsphase (Séparation) [cite: 1283], 2. Zwischenphase (Liminalität) [cite: 1286], 3. Integrationsphase (Agrégation)[cite: 1291].
+Soziologie & Entwicklung;Was kennzeichnet die "Zwischenphase" (Liminalität) nach van Gennep?;Das Individuum befindet sich in einem undefinierten, oft verletzlichen Zwischenzustand[cite: 1287]. Es gehört weder zur alten noch zur neuen Rolle und ist besonders anfällig für äussere Einflüsse[cite: 1288].
+Soziologie & Entwicklung;Was geschieht in der "Integrationsphase" (Agrégation) eines Übergangs?;Das Individuum wird in seiner neuen Rolle oder Identität offiziell in die Gesellschaft oder Gemeinschaft wiedereingegliedert und akzeptiert[cite: 1292, 1293].
+Professionelles Selbstverständnis;Wo und wie können Sie ein Vorbild sein?;Durch ethisch korrektes Handeln, konsequente Einhaltung von Standards, wertschätzende Kommunikation gegenüber Lernenden und durch die Bereitschaft, das eigene Handeln jederzeit kritisch zu hinterfragen.
+    `;
 
     // ==========================================
     // APP LOGIK
     // ==========================================
 
-    let questions = [];
+    let allQuestions = [];
     let currentPool = [];
     let currentIndex = 0;
+    let uniqueThemes = [];
 
     window.onload = () => {
-        // Lade die integrierten Fragen
-        questions = parseCSV(QUESTIONS_DATA);
+        allQuestions = parseCSV(QUESTIONS_DATA);
+        extractThemes();
         updateHomeInfo();
     };
 
@@ -982,6 +1206,39 @@ Professionelles Selbstverständnis;Wo und wie können Sie ein Vorbild sein?;Durc
         }).filter(q => q !== null);
     }
 
+    function extractThemes() {
+        const themes = new Set(allQuestions.map(q => q.theme));
+        uniqueThemes = Array.from(themes).sort();
+        
+        const themeListContainer = document.getElementById('theme-list');
+        themeListContainer.innerHTML = ''; // Clear existing
+
+        uniqueThemes.forEach((theme, index) => {
+            const wrapper = document.createElement('div');
+            wrapper.className = 'theme-checkbox-wrapper';
+            
+            const checkbox = document.createElement('input');
+            checkbox.type = 'checkbox';
+            checkbox.id = 'theme-' + index;
+            checkbox.value = theme;
+            checkbox.checked = true; // Standardmässig alle ausgewählt
+            checkbox.className = 'theme-cb';
+
+            const label = document.createElement('label');
+            label.htmlFor = 'theme-' + index;
+            label.innerText = theme;
+
+            wrapper.appendChild(checkbox);
+            wrapper.appendChild(label);
+            themeListContainer.appendChild(wrapper);
+        });
+    }
+
+    function toggleAllThemes(checkState) {
+        const checkboxes = document.querySelectorAll('.theme-cb');
+        checkboxes.forEach(cb => cb.checked = checkState);
+    }
+
     function showView(viewId) {
         document.querySelectorAll('.container').forEach(v => v.classList.add('hidden'));
         document.getElementById(viewId).classList.remove('hidden');
@@ -989,19 +1246,39 @@ Professionelles Selbstverständnis;Wo und wie können Sie ein Vorbild sein?;Durc
 
     function updateHomeInfo() {
         const info = document.getElementById('question-count-info');
-        if (questions.length > 0) {
-            info.innerHTML = `Katalog bereit: <strong>${questions.length} Fragen</strong> integriert.`;
-            document.getElementById('btn-start').style.display = "inline-block";
+        if (allQuestions.length > 0) {
+            info.innerHTML = `Datenbank geladen: <strong>${allQuestions.length} Fragen</strong> gesamt.`;
+            document.getElementById('btn-start').classList.remove('hidden');
+            document.getElementById('filter-container').classList.remove('hidden');
         } else {
-            info.innerText = "Fehler beim Laden der Fragen.";
-            document.getElementById('btn-start').style.display = "none";
+            info.innerText = "Fehler beim Laden der Fragen. Bitte CSV-Daten prüfen.";
+            document.getElementById('btn-start').classList.add('hidden');
+            document.getElementById('filter-container').classList.add('hidden');
         }
     }
 
     function startLearning() {
-        if (questions.length === 0) return;
-        // Fragen mischen
-        currentPool = [...questions].sort(() => Math.random() - 0.5);
+        // 1. Ausgewählte Themen ermitteln
+        const checkboxes = document.querySelectorAll('.theme-cb');
+        const selectedThemes = Array.from(checkboxes)
+                                   .filter(cb => cb.checked)
+                                   .map(cb => cb.value);
+
+        if (selectedThemes.length === 0) {
+            alert("Bitte wähle mindestens ein Themengebiet aus, um zu starten!");
+            return;
+        }
+
+        // 2. Fragen filtern
+        const filteredQuestions = allQuestions.filter(q => selectedThemes.includes(q.theme));
+
+        if (filteredQuestions.length === 0) {
+            alert("Zu den ausgewählten Themen wurden keine Fragen gefunden.");
+            return;
+        }
+
+        // 3. Mischen und Starten
+        currentPool = [...filteredQuestions].sort(() => Math.random() - 0.5);
         currentIndex = 0;
         showView('view-learn');
         displayQuestion();
@@ -1031,7 +1308,7 @@ Professionelles Selbstverständnis;Wo und wie können Sie ein Vorbild sein?;Durc
         if (currentIndex < currentPool.length) {
             displayQuestion();
         } else {
-            alert("Hervorragend! Du hast alle Fragen dieser Runde gelernt.");
+            alert("Hervorragend! Du hast alle Fragen aus den gewählten Themen durchgearbeitet.");
             showView('view-home');
         }
     }
